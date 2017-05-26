@@ -22,8 +22,8 @@ class Chat(object):
         while not self.is_done:
             try:
                 self.clear()
-                print(str(self.print_messages()))
-                line = input(bcolors.OKBLUE + self.prompt + ": " + bcolors.OKGREEN)
+                print(self.print_messages())
+                line = input(bcolors.OKBLUE + " " + self.prompt + ": " + bcolors.OKGREEN)
                 self.handle(line)
             except (EOFError, KeyboardInterrupt):
                 self._is_done = True
@@ -40,7 +40,7 @@ class Chat(object):
         up = min(len(messages), n)
         ret = []
         for m in messages[0:up]:
-            ret.append("%s(%s) %s%s... %s%s" % (bcolors.HEADER, str(m.created_at), bcolors.WARNING, m.name, bcolors.OKGREEN,  m.text))
+            ret.append("%s(%s) %s %s... %s %s" % (bcolors.HEADER, str(m.created_at), bcolors.WARNING, ascii(m.name), bcolors.OKGREEN,  ascii(m.text)))
         ret = list(reversed(ret))
         return "\n".join(ret)
 
