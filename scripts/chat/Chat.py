@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 
+import signal
+
+class InputTimeoutError(Exception):
+    '''
+    stupid exception I'll signal with an
+    alarm to timeout input()
+    '''
+    pass
+
 class bcolors:
     '''
     shamelessly copied from stackoverflow
@@ -14,19 +23,40 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 class Chat(object):
-    def __init__(self, prompt="CHAT"):
+    def __init__(self, prompt="CHAT", timeout=5):
         self._is_done = False
+        self._prev_out = ""
         self.prompt = prompt
+        self.timeout = timeout
+        signal.signal(signal.SIGALRM, self._input_timeout)
+
+    @staticmethod
+    def _input_timeout(signum, frame):
+        '''
+        there seems to be no better way to set a timeout on input(), too bad
+        this makes me not Windows compatible.. oh well. My netbook runs arch
+        '''
+        raise InputTimeoutError()
 
     def run(self):
+        '''
+        main loop
+        '''
         while not self.is_done:
             try:
-                self.clear()
-                print(self.print_messages())
-                line = input(bcolors.OKBLUE + " " + self.prompt + ": " + bcolors.OKGREEN)
-                self.handle(line)
+                signal.alarm(self.timeout)
+
+                out = self._printable_message()
+                self._update_screen(out)
+
+                line = input(bcolors.OKBLUE + self.prompt + ": " + bcolors.OKGREEN)
+                signal.alarm(0)
+
+                self._handle(line)
             except (EOFError, KeyboardInterrupt):
                 self._is_done = True
+            except InputTimeoutError:
+                continue
         print()
 
     def get_messages(self):
@@ -35,7 +65,20 @@ class Chat(object):
     def handle_command(self, line):
         raise NotImplementedError("unimplemented")
 
-    def print_messages(self, n=100):
+    def _update_screen(self, update):
+        '''
+        only clear/update the screen when the new output is different than
+        what I had previously
+        '''
+        if update is not self._prev_out:
+            self.clear()
+            print(update)
+            self._prev_out = update
+
+    def _printable_message(self, n=100):
+        '''
+        print on the screen
+        '''
         messages = self.get_messages()
         up = min(len(messages), n)
         ret = []
@@ -44,7 +87,7 @@ class Chat(object):
         ret = list(reversed(ret))
         return "\n".join(ret)
 
-    def handle(self, line):
+    def _handle(self, line):
         if not self.has_text(line):
             pass
         elif self.is_cmd(line):
