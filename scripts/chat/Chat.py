@@ -25,7 +25,8 @@ class bcolors:
 class Chat(object):
     def __init__(self, prompt="CHAT", timeout=5):
         self._is_done = False
-        self._prev_out = ""
+        self._prev_time = None
+        self._refresh_prompt = True
         self.prompt = prompt
         self.timeout = timeout
         signal.signal(signal.SIGALRM, self._input_timeout)
@@ -46,10 +47,13 @@ class Chat(object):
             try:
                 signal.alarm(self.timeout)
 
-                out = self._printable_message()
-                self._update_screen(out)
+                (out, time) = self._printable_message()
+                self._update_screen(out, time)
 
-                line = input(bcolors.OKBLUE + self.prompt + ": " + bcolors.OKGREEN)
+                if self._refresh_prompt:
+                    line = input(bcolors.OKBLUE + self.prompt + ": " + bcolors.OKGREEN)
+                else:
+                    line = input()
                 signal.alarm(0)
 
                 self._handle(line)
@@ -65,15 +69,17 @@ class Chat(object):
     def handle_command(self, line):
         raise NotImplementedError("unimplemented")
 
-    def _update_screen(self, update):
+    def _update_screen(self, update, time):
         '''
-        only clear/update the screen when the new output is different than
-        what I had previously
+        check the last timestamp and update if different
         '''
-        if update is not self._prev_out:
+        if time != self._prev_time:
             self.clear()
             print(update)
-            self._prev_out = update
+            self._prev_time = time
+            self._refresh_prompt = True
+        else:
+            self._refresh_prompt = False
 
     def _printable_message(self, n=100):
         '''
@@ -85,7 +91,7 @@ class Chat(object):
         for m in messages[0:up]:
             ret.append("%s(%s) %s %s... %s %s" % (bcolors.HEADER, str(m.created_at), bcolors.WARNING, ascii(m.name), bcolors.OKGREEN,  ascii(m.text)))
         ret = list(reversed(ret))
-        return "\n".join(ret)
+        return ("\n".join(ret), str(messages[0].created_at))
 
     def _handle(self, line):
         if not self.has_text(line):
